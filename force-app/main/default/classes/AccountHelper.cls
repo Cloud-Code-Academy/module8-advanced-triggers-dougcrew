@@ -28,26 +28,28 @@ Always ensure that your helper methods are bulk-safe to handle multiple records 
 */
 public with sharing class AccountHelper extends TriggerHandler {
 
-    protected override void beforeInsert() {
-        setTypeProspect();
-        addressCopy();
-        setRating();
-    }
+    // protected override void beforeInsert() {
+    //     // setTypeProspect();
+    //     addressCopy();
+    //     setRating();
+    // }
 
-    protected override void afterInsert() {
-        defaultContact ();
-    }
-    
-    public static void setTypeProspect(){ /*SObject objects*/
-        for (Account acc : (List<Account>)Trigger.new) {
+    // protected override void afterInsert() {
+    //     defaultContact ();
+    // }
+
+
+    public static void setTypeProspect(List<Account> accList){ /*SObject objects*/
+        for (Account acc : accList) {
             if (acc.Type == null) {
                 acc.Type = 'Prospect';
-            }
+            } System.debug(':::' + accList);
         }
     }
 
-    public static void addressCopy(){
-        for (Account acc : (List<Account>)Trigger.new) {
+
+    public static void addressCopy(List<Account> accList){
+        for (Account acc : accList) {
             if (acc.ShippingStreet != null) {
                 acc.BillingStreet = acc.ShippingStreet;
             }
@@ -70,17 +72,17 @@ public with sharing class AccountHelper extends TriggerHandler {
         }  
     }
 
-    public static void setRating () {
-        for (Account acc : (List<Account>)Trigger.new) {
+    public static void setRating (List<Account> accList) {
+        for (Account acc : accList) {
             if (acc.Phone != null && acc.Website != null && acc.Fax != null) {
                 acc.Rating = 'Hot';
             }
         }
     }
 
-    public static void defaultContact () {
+    public static void defaultContact (List<Account> accList) {
         List<Contact> contacts = new List<Contact>();   
-        for(Account acc : (List<Account>)Trigger.new){
+        for(Account acc : accList){
             Contact con = new Contact();
             con.LastName = 'DefaultContact';
             con.Email = 'default@email.com';
