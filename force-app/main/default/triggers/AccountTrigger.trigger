@@ -17,40 +17,51 @@ For this lesson, students have two options:
 
 Let's dive into the specifics of each operation:
 */
-trigger AccountTrigger on Account (before insert, after insert) {
-    new AccountHelper().run();
+trigger AccountTrigger on Account (before insert, after insert, before update, after update, before delete, after delete ) {
+    switch on Trigger.operationType {
+        when BEFORE_INSERT {      
+            AccountHelper.setTypeProspect(Trigger.new); 
+            AccountHelper.addressCopy(Trigger.new);
+            AccountHelper.setRating (Trigger.new);
+        }
+        when AFTER_INSERT {
+            AccountHelper.defaultContact (Trigger.new); 
+
+        }
+        when BEFORE_UPDATE {
+            
+
+        }
+        when AFTER_UPDATE {
+            
+        }
+        when BEFORE_DELETE {
+
+        }
+        when AFTER_DELETE {
+            
+        }
+    }
     /*
     * Account Trigger
     * When an account is inserted change the account type to 'Prospect' if there is no value in the type field.
     * Trigger should only fire on insert.
     */
-    // if (Trigger.isBefore && Trigger.isInsert) {
-    //         AccountHelper.setTypeProspect();
-    //         AccountHelper.addressCopy();
-    //         AccountHelper.setRating ();
-    // }
-
-    // if(Trigger.isAfter && Trigger.isInsert){     
-    //     AccountHelper.defaultContact (); 
-    // }
+    
 
     /*
     * Account Trigger
     * When an account is inserted copy the shipping address to the billing address.
     * Trigger should only fire on insert.
     */
-    // if (Trigger.isBefore && Trigger.isInsert) {
-              
-    // }
+    
 
     /*
     * Account Trigger
     * When an account is inserted set the rating to 'Hot' if the Phone, Website, and Fax is not empty.
     * Trigger should only fire on insert.
     */
-    // if (Trigger.isBefore && Trigger.isInsert) {
-        
-    // }
+    
     
     /*
     * Account Trigger

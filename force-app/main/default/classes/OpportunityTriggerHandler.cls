@@ -1,133 +1,129 @@
 public with sharing class OpportunityTriggerHandler extends Triggerhandler {
 
+    private List<Opportunity> newOppList;
+    private List<Opportunity> oldOppList;
+    private Map<Id, Opportunity> newOppMap;
+    private Map<Id, Opportunity> oldOppMap;
 
-    public OpportunityTriggerHandler() {
-                this.setMaxLoopCount(1);
-            }
+    public OpportunityTriggerHandler(){
+        this.newOppList = (List<Opportunity>) Trigger.new;
+        this.newOppMap = (Map<Id, Opportunity>) Trigger.newMap;
+        this.oldOppList = (List<Opportunity>) Trigger.old;
+        this.OldOppMap = (Map<Id, Opportunity>) Trigger.oldMap;
+        // public static Boolean hasRun = false;
 
-        public static void validateAmount(List<Opportunity> oppList){
-            for(Opportunity opp : oppList){
+        // Boolean stopTrigger = Trigger_Setting__mdt.getInstance('OpportunityBestPracticeTrigger')?.Disable_Trigger__c;
+
+        //     if (stopTrigger == true || hasRun == true) {
+        //         TriggerHandler.bypass('OpportunityTriggerHandler');
+        //     } 
+        //     hasRun = true;
+
+            this.setMaxLoopCount(1);
+        }
+
+        public override void beforeInsert() {
+            for ( Opportunity opp : this.newOppList)
+                if (opp.Type == null){
+                    opp.Type = 'New Customer';
+            } 
+
+            
+        }
+
+        public override void beforeUpdate() {
+            for(Opportunity opp : this.newOppList){
                 if(opp.Amount < 5000){
                     opp.addError('Opportunity amount must be greater than 5000');
                 }
             }
-        }
-        public static void validateDeletion(List<Opportunity> oldOpportunities){
-            Map<Id, Account> accounts = new Map<Id, Account>([SELECT Id, Industry FROM Account WHERE Id IN (SELECT AccountId FROM Opportunity WHERE Id IN :oldOpportunities)]);
-            for(Opportunity opp : oldOpportunities){
-                if(opp.StageName == 'Closed Won'){
-                    if(accounts.get(opp.AccountId).Industry == 'Banking'){
-                        opp.addError('Cannot delete a closed won opportunity for a banking account');
-                    }
-                }
-            }
-        }
-        // public static void validateCloseOpportunity (List<Opportunity> oppsToDelete) {
-        //     for (Opportunity oldOpp : oppsToDelete){
-        //         if (oldOpp.IsClosed){
-        //             oldOpp.addError('Cannot delete closed opportunity');
-        //         }
-        //     }
-        // }
-    
-            
-        public static void setPrimaryContact(List<Opportunity> updatedOpps) {
+
+
             Set<Id> accountIds = new Set<Id>();
-            for(Opportunity opp : updatedOpps){
+            for(Opportunity opp : this.newOppList){
                 accountIds.add(opp.AccountId);
             }
-            
             Map<Id, Contact> contacts = new Map<Id, Contact>([SELECT Id, FirstName, AccountId FROM Contact WHERE AccountId IN :accountIds AND Title = 'CEO' ORDER BY FirstName ASC]);
-            Map<Id, Contact> accountIdToContact = new Map<Id, Contact>();
-    
+            Map<Id, Contact> accountIdToContact = new Map<Id, Contact>(); 
             for (Contact cont : contacts.values()) {
                 if (!accountIdToContact.containsKey(cont.AccountId)) {
                     accountIdToContact.put(cont.AccountId, cont);
                 }
             }
-    
-            for(Opportunity opp : updatedOpps){
+            for(Opportunity opp : newOppList){
                 if(opp.Primary_Contact__c == null){
                     if (accountIdToContact.containsKey(opp.AccountId)){
                         opp.Primary_Contact__c = accountIdToContact.get(opp.AccountId).Id;
                     }
                 }
             }
+          
         }
-    
-        public static void setType(List<Opportunity> opps) {
-            List<Opportunity> oppsToInsert = new List<Opportunity>();
-            for (Opportunity opp : opps) {
-                if (opp.Type == null){
-                    opp.Type = 'New Customer';
-                    oppsToInsert.add(opp);
-                } 
-            } insert oppsToInsert;
+
+        public override void beforeDelete() {
+            for (Opportunity oldOpp : this.oldOppList){
+                if (oldOpp.IsClosed){
+                    oldOpp.addError('Cannot delete closed opportunity');
+                }
+            }
+          
         }
-    
-        public static void createTaskForPrimaryContact (List<Opportunity> newOpps) {
+
+        public override void afterInsert() {
             List<Task> tasksToCreate = new List<Task>();
-            for (Opportunity opp : newOpps){
+
+            for (Opportunity opp : this.newOppList){               
                 Task tsk = new Task();
                 tsk.Subject = 'Call Primary Contact';
                 tsk.WhatId = opp.Id;
+                if(opp.Primary_Contact__c != null){
                 tsk.WhoId = opp.Primary_Contact__c;
+                }
                 tsk.OwnerId = opp.OwnerId;
                 tsk.ActivityDate = Date.today().addDays(3);
                 tasksToCreate.add(tsk);
-            } insert tasksToCreate;
-        }
-    
-        public static void updateDescriptionFromStage(List<Opportunity> newOpps, Map<Id, Opportunity> oldOppsMap){ 
-
-            String timestamp = DateTime.now().format();
-
-            for ( Opportunity newOpp : newOpps) {
-                Opportunity oldOpp = oldOppsMap.get(newOpp.Id);
-                if (oldOpp != null && oldOpp.StageName != newOpp.StageName) {
-                    newOpp.Description += '\n Stage Change:' + newOpp.StageName + ':' + timestamp;
-                } else { 
-                newOpp.Description = newOpp.Description;
-                }
-            }   
-        }
-    
-        public static void notifyOwnersOpportunityDeleted(List<Opportunity> opps) {
-            List<Messaging.SingleEmailMessage> mails = new List<Messaging.SingleEmailMessage>();
-            Map<Id, Opportunity> oppEmailMap = new Map<Id, Opportunity>();
-    
-            Set<Id> ownerIds = new Set<Id>();
-            for(Opportunity opp : opps) {
-                oppEmailMap.put(opp.Id, opp);
-                ownerIds.add(opp.OwnerId);
-            }
-            Map<Id, User> userMap = new Map<Id, User>([SELECT Id, Email FROM User WHERE Id IN :ownerIds]);
-            for (Opportunity opp : opps){
-                Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
-                String [] toAddresses = new String[] {userMap.get(opp.OwnerId).Email};
-                mail.setToAddresses(toAddresses);
-                mail.setSubject('Opportunity Deleted : ' + opp.Name);
-                mail.setPlainTextBody('Your Opportunity: ' + opp.Name +' has been deleted.');
-                mails.add(mail);
-            }        
+                }  
             
-            try {
-                Messaging.sendEmail(mails);
-            } catch (Exception e){
-                System.debug('Exception: ' + e.getMessage());
-            }
-        }
-    
-        public static void assignPrimaryContact(Map<Id,Opportunity> oppNewMap) {        
-            Map<Id, Opportunity> oppMap = new Map<Id, Opportunity>();
-            for (Opportunity opp : oppNewMap.values()){            
-                Contact primaryContact = [SELECT Id, AccountId FROM Contact WHERE Title = 'VP Sales' AND AccountId = :opp.AccountId LIMIT 1];
-                if (opp.Primary_Contact__c == null){
-                    Opportunity oppToUpdate = new Opportunity(Id = opp.Id);
-                    oppToUpdate.Primary_Contact__c = primaryContact.Id;
-                    oppMap.put(opp.Id, oppToUpdate);
+            if (!tasksToCreate.isEmpty()) {
+                try {
+                    insert tasksToCreate;
+                } catch (DmlException e) {
+                    for (Opportunity opp : this.newOpplist) {
+                        opp.addError('Unable to create task: ' + e.getMessage());
+                    }
                 }
             }
-            update oppMap.values();
+            
         }
+
+        public override void afterUpdate() {
+            String timestamp = DateTime.now().format();
+            List<Opportunity> oppsToUpdate = new List<Opportunity>();
+            for ( Opportunity newOpp : this.newOppList) {
+                Opportunity oldOpp = oldOppMap.get(newOpp.Id);
+                if (oldOpp != null && oldOpp.StageName != newOpp.StageName) {
+                    
+                    Opportunity oppToUpdate = new Opportunity(
+                        Id = newOpp.Id,
+                        Description = newOpp.Description + '\n Stage Change:' + newOpp.StageName + ':' + timestamp
+                        );
+                        oppsToUpdate.add(oppToUpdate);
+                }
+      
+            } 
+            if (!oppsToupdate.isEmpty()) {
+                update oppsToUpdate;
+            }
+        }
+
+        public override void afterDelete() {
+            OpportunityHelper.notifyOwnersOpportunityDeleted(this.oldOppList);
+          
+        }
+
+        public override void afterUndelete() {
+            OpportunityHelper.assignPrimaryContact(this.newOppMap);
+              
+        }
+      
 }
