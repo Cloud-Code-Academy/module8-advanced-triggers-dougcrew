@@ -40,7 +40,7 @@ public with sharing class TriggerBestPracticeTest {
 	 * When an account is inserted change the account type to 'Prospect' if there is no value in the type field.
      * Trigger should only fire on insert.
      */
-    @IsTest 
+   @IsTest 
     static void testAccountTrigger_setTypeProspect() {
         // Prepare the test data
         List<Account> accountTypeProspect = new List<Account>();
@@ -389,7 +389,7 @@ public with sharing class TriggerBestPracticeTest {
         }
     }
 
-    @IsTest
+    @IsTest 
     private static void testAnotherOpportunityTrigger_notifyOwnersOpportunityDeleted() {
         Account acc = new Account(Name = 'Test Account');
         insert acc;
