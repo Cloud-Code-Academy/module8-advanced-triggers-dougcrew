@@ -19,7 +19,7 @@ public with sharing class OpportunityTriggerHandler extends Triggerhandler {
         //     } 
         //     hasRun = true;
 
-            this.setMaxLoopCount(1);
+            // this.setMaxLoopCount(2);
         }
 
         public override void beforeInsert() {
